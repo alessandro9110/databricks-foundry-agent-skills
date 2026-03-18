@@ -155,7 +155,7 @@ Two options, both safe — credentials are never written into `.mcp.json`:
 
 ```bash
 git clone https://github.com/alessandro9110/databricks-foundry-agent-skills
-cd agent-skills
+cd databricks-foundry-agent-skills
 bash install.sh --tools claude,cursor,copilot
 ```
 

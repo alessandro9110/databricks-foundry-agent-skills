@@ -129,8 +129,8 @@ _check "databricks" databricks "brew tap databricks/tap && brew install databric
 echo ""
 
 # ── Resolve repo (clone/update if run via pipe, use local if run from clone) ──
-REPO_URL="https://github.com/alessandro9110/agent-skills.git"
-INSTALL_DIR="$HOME/.agent-skills"
+REPO_URL="https://github.com/alessandro9110/databricks-foundry-agent-skills.git"
+INSTALL_DIR="$HOME/.databricks-foundry-agent-skills"
 
 _src_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-/dev/null}")" 2>/dev/null && pwd || true)"
 if [[ -f "${BASH_SOURCE[0]:-}" ]] && [[ -d "$_src_dir/skills" ]]; then
@@ -139,10 +139,10 @@ if [[ -f "${BASH_SOURCE[0]:-}" ]] && [[ -d "$_src_dir/skills" ]]; then
 else
   # Running via pipe (bash <(curl ...)) — clone or update repo
   if [[ -d "$INSTALL_DIR/.git" ]]; then
-    info "Updating agent-skills repo..."
+    info "Updating databricks-foundry-agent-skills repo..."
     git -C "$INSTALL_DIR" pull -q
   else
-    info "Cloning agent-skills repo to $INSTALL_DIR..."
+    info "Cloning databricks-foundry-agent-skills repo to $INSTALL_DIR..."
     git clone -q "$REPO_URL" "$INSTALL_DIR"
   fi
   SCRIPT_DIR="$INSTALL_DIR"
