@@ -1,13 +1,13 @@
 ---
 name: azure-ai-foundry-agents
-description: Guides creation and deployment of AI agents and multi-agent systems on Azure AI Foundry using Microsoft Agent Framework. Use when building agents with function calling, Databricks Genie, vector databases (Azure AI Search), or multi-agent orchestration. Triggers on phrases like "create agent on Azure", "deploy agent Foundry", "multi-agent Azure", "agent with tools Azure", "Databricks Genie agent", "vector search agent Foundry", "Azure AI agent", "Microsoft Agent Framework".
+description: Guides creation, deployment, governance, and observability of AI agents and multi-agent systems on Azure AI Foundry using Microsoft Agent Framework. Use when building agents with function calling, Databricks Genie, vector databases (Azure AI Search), AI Gateway governance, or Application Insights monitoring. Triggers on phrases like "create agent on Azure", "deploy agent Foundry", "multi-agent Azure", "agent with tools Azure", "Databricks Genie agent", "vector search agent Foundry", "Azure AI agent", "Microsoft Agent Framework", "AI Gateway agent governance", "monitor agent App Insights", "token limit agent Azure", "content safety agent", "agent observability Azure", "agent telemetry Azure".
 license: MIT
-compatibility: Requires Azure subscription and azure-ai-projects Python SDK (>=2.0.0b4) or Microsoft.Agents.AI .NET package. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor.
+compatibility: Requires Azure subscription and azure-ai-projects Python SDK (>=2.0.0b4, v2 beta line) or Microsoft.Agents.AI .NET package. SDK v2 has breaking changes vs v1 — see SDK Migration Notes below. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor.
 metadata:
   author: Alessandro Armillotta
-  version: 1.0.0
+  version: 1.2.0
   category: azure-ai
-  tags: [azure, ai-foundry, agents, multi-agent, databricks, vector-db, microsoft-agent-framework]
+  tags: [azure, ai-foundry, agents, multi-agent, databricks, vector-db, microsoft-agent-framework, ai-gateway, app-insights, observability]
   dependencies:
     - name: azure-microsoft-foundry
       repo: MicrosoftDocs/Agent-Skills
@@ -20,6 +20,22 @@ metadata:
     - name: azure-ai-services
       repo: MicrosoftDocs/Agent-Skills
       raw_base: https://raw.githubusercontent.com/MicrosoftDocs/Agent-Skills/main/skills/azure-ai-services
+      files: [SKILL.md]
+    - name: azure-ai
+      repo: microsoft/azure-skills
+      raw_base: https://raw.githubusercontent.com/microsoft/azure-skills/main/.github/plugins/azure-skills/skills/azure-ai
+      files: [SKILL.md]
+    - name: azure-aigateway
+      repo: microsoft/azure-skills
+      raw_base: https://raw.githubusercontent.com/microsoft/azure-skills/main/.github/plugins/azure-skills/skills/azure-aigateway
+      files: [SKILL.md]
+    - name: appinsights-instrumentation
+      repo: microsoft/azure-skills
+      raw_base: https://raw.githubusercontent.com/microsoft/azure-skills/main/.github/plugins/azure-skills/skills/appinsights-instrumentation
+      files: [SKILL.md]
+    - name: azure-diagnostics
+      repo: microsoft/azure-skills
+      raw_base: https://raw.githubusercontent.com/microsoft/azure-skills/main/.github/plugins/azure-skills/skills/azure-diagnostics
       files: [SKILL.md]
   mcp_servers:
     - name: microsoft-learn
@@ -41,8 +57,19 @@ Before starting, gather from the user:
 3. **Agent type** — single agent or multi-agent orchestration
 4. **Integrations needed** — function calling, Databricks Genie, Azure AI Search (vector DB), MCP tools
 5. **Language** — Python or C#
+6. **Governance needed?** — AI Gateway (token limits, content safety, semantic caching, rate limiting)
+7. **Observability needed?** — Application Insights (telemetry, traces, latency, error rates)
 
 CRITICAL: Always ask these questions before generating any code.
+
+> **Related skills to load alongside this one:**
+> - `azure-microsoft-foundry` (from MicrosoftDocs/Agent-Skills) — live Microsoft Foundry docs and SDK references
+> - `azure-cognitive-search` (from MicrosoftDocs/Agent-Skills) — Azure AI Search patterns for RAG
+> - `azure-ai-services` (from MicrosoftDocs/Agent-Skills) — Azure AI services reference
+> - `azure-ai` (from microsoft/azure-skills) — AI Search, Speech, OpenAI, Document Intelligence
+> - `azure-aigateway` (from microsoft/azure-skills) — AI Gateway governance: token limits, content safety, caching, MCP rate limiting
+> - `appinsights-instrumentation` (from microsoft/azure-skills) — App Insights SDK, telemetry patterns, APM for agents
+> - `azure-diagnostics` (from microsoft/azure-skills) — debug and troubleshoot deployed agents (Container Apps, Function Apps, KQL)
 
 ## Instructions
 
@@ -247,6 +274,121 @@ Always synthesize results into a coherent final response.""",
 )
 ```
 
+## Governance: Azure AI Gateway
+
+Usa Azure API Management (APIM) come AI Gateway per governare gli endpoint degli agenti. Fornisce: token limits, content safety, semantic caching, rate limiting, jailbreak detection, e observability centralizzata.
+
+### Quando usarlo
+- Produzione con più agenti o utenti che condividono lo stesso endpoint
+- Controllo costi (token budget per utente/team)
+- Content safety obbligatoria (compliance)
+- Load balancing tra più deployment dello stesso modello
+
+### Setup rapido: esporre un agente dietro AI Gateway
+
+```bash
+# Prerequisiti: APIM instance già provisioned
+az apim api import \
+  --resource-group <rg> \
+  --service-name <apim-name> \
+  --specification-format OpenApi \
+  --specification-url "https://<resource>.ai.azure.com/api/projects/<project>/openapi.json" \
+  --path "agents/my-agent"
+```
+
+**Aggiungere policy LLM in APIM (bicep):**
+```bicep
+resource aiGatewayPolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-preview' = {
+  name: 'policy'
+  properties: {
+    value: '''
+    <policies>
+      <inbound>
+        <!-- Token limit: max 10k tokens/min per subscription -->
+        <azure-openai-token-limit tokens-per-minute="10000" counter-key="@(context.Subscription.Id)" />
+        <!-- Semantic cache: risposta cached per query simili (soglia 0.85) -->
+        <azure-openai-semantic-cache-lookup score-threshold="0.85" />
+        <!-- Content safety: blocca jailbreak e contenuti dannosi -->
+        <azure-openai-content-safety />
+      </inbound>
+      <outbound>
+        <azure-openai-semantic-cache-store duration="3600" />
+        <!-- Emit token metrics verso App Insights -->
+        <azure-openai-emit-token-metric />
+      </outbound>
+    </policies>
+    '''
+  }
+}
+```
+
+> Per la configurazione completa di AI Gateway con agent endpoints, load balancing multi-backend e MCP rate limiting, carica la skill `azure-aigateway`.
+
+---
+
+## Observability: Application Insights
+
+Strumenta gli agenti con Azure Application Insights per tracciare latenze, token usage, errori, e flussi conversazionali.
+
+### Install
+
+```bash
+pip install "azure-ai-projects>=2.0.0b4" azure-monitor-opentelemetry
+```
+
+### Enable tracing su AIProjectClient
+
+```python
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+from azure.monitor.opentelemetry import configure_azure_monitor
+
+# Configura App Insights — APPLICATIONINSIGHTS_CONNECTION_STRING da env o Key Vault
+configure_azure_monitor()
+
+project = AIProjectClient(
+    endpoint="https://<resource>.ai.azure.com/api/projects/<project>",
+    credential=DefaultAzureCredential()
+)
+
+# Abilita tracing OpenTelemetry sul client (cattura ogni call all'agente)
+project.telemetry.enable()
+```
+
+### Cosa viene tracciato automaticamente
+- Ogni invocazione dell'agente (input, output, latenza)
+- Tool calls (nome tool, argomenti, risposta)
+- Token usage (prompt + completion tokens per request)
+- Errori e retry
+
+### Query KQL utili (Azure Monitor / Log Analytics)
+
+```kql
+// Latenza media per agente (ultimi 7 giorni)
+dependencies
+| where timestamp > ago(7d)
+| where type == "Azure AI Foundry"
+| summarize avg_latency_ms=avg(duration), p95_latency_ms=percentile(duration, 95)
+    by agent_name=tostring(customDimensions["agent.name"])
+| order by avg_latency_ms desc
+
+// Token usage per giorno
+customMetrics
+| where name == "gen_ai.client.token.usage"
+| summarize total_tokens=sum(value) by bin(timestamp, 1d), tostring(customDimensions["gen_ai.token.type"])
+| render timechart
+
+// Errori agente per tipo
+exceptions
+| where timestamp > ago(24h)
+| summarize count() by type, outerMessage
+| order by count_ desc
+```
+
+> Per pattern avanzati di instrumentazione (custom spans, sampling, SDK setup), carica la skill `appinsights-instrumentation`. Per debugging di Container Apps o Function Apps che ospitano gli agenti, usa `azure-diagnostics`.
+
+---
+
 ## IDE Compatibility Notes
 
 ### VS Code / GitHub Copilot
@@ -285,3 +427,37 @@ Always synthesize results into a coherent final response.""",
 - Take time to correctly define tool schemas — precision here prevents errors downstream
 - For multi-agent systems, always define clear boundaries between agents in their instructions
 - Do not skip cleanup of agent versions after testing
+
+---
+
+## SDK Migration Notes (v2.0.0b4+)
+
+The `azure-ai-projects` SDK v2 (Python `2.0.0b4+`, .NET `2.0.0-beta.1+`) has breaking changes vs v1:
+
+| Area | Old (v1) | New (v2) |
+|------|----------|----------|
+| Authentication | `ad_token`, `ad_token_provider` params | Unified `credential` param (`DefaultAzureCredential`) |
+| Session management | `AgentThread` type | Removed — use `openai.responses` API directly |
+| Checkpoints | Previous format | Redesigned — migrate or regenerate existing artifacts |
+| Event property | `source_executor_id` | Renamed to `executor_id` in `WorkflowOutputEvent` |
+
+Install command (`pip install "azure-ai-projects>=2.0.0b4"`) already targets v2. If upgrading from v1, follow the [Microsoft upgrade guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes).
+
+---
+
+## New Features (2026)
+
+### Managed Long-Term Memory
+The Foundry Agent Service now includes a fully managed memory store — no custom vector DB or retrieval pipeline required. Enable per agent:
+```python
+# Memory is configured via the agent definition — consult live docs via microsoft-learn MCP
+# Tool: mcp_microsoftdocs:microsoft_docs_fetch
+# Query: "azure ai foundry agent memory configuration"
+```
+Memory runs in 4 phases: Extract → Consolidate → Retrieve → Customize. Use `user_profile_details` to focus extraction on your domain.
+
+### Voice Live API (Public Preview)
+Build voice-first, multimodal, real-time agents via the Voice Live API integration with Foundry Agent Service. Consult live docs for the current SDK interface.
+
+### Durable Agent Orchestration
+New HITL (Human-in-the-Loop) pattern: pair Azure Durable Functions with Agent Framework and SignalR for agents that survive restarts and wait for human approval across sessions.
