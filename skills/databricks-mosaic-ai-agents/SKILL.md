@@ -1,11 +1,11 @@
 ---
 name: databricks-mosaic-ai-agents
-description: Guides building and deploying custom AI agents on Databricks using Mosaic AI Agent Framework with LangGraph or LangChain. Use when creating agents with MLflow tracing, Unity Catalog functions as tools, Vector Search retrieval, or deploying agents via Model Serving (agents.deploy) or Databricks Apps. Triggers on phrases like "build agent Databricks", "LangGraph Mosaic AI", "LangChain Databricks agent", "deploy agent MLflow", "UC function tool", "agent asset bundle", "Databricks agent job deployment", "Mosaic AI LangGraph", "Databricks Apps agent".
+description: Guides building and deploying custom AI agents on Databricks using Mosaic AI Agent Framework with LangGraph, LangChain, or OpenAI Agent SDK. Use when creating agents with MLflow tracing, Unity Catalog functions as tools, Vector Search retrieval, or deploying agents via Model Serving (agents.deploy) or Databricks Apps. Triggers on phrases like "build agent Databricks", "LangGraph Mosaic AI", "LangChain Databricks agent", "OpenAI Agent SDK Databricks", "deploy agent MLflow", "UC function tool", "agent asset bundle", "Databricks agent job deployment", "Mosaic AI LangGraph", "Databricks Apps agent", "Supervisor Agent Databricks".
 license: MIT
 compatibility: Requires Databricks workspace with Unity Catalog, MLflow 3.1.3+, databricks-langchain, langgraph or langchain, databricks-agents SDK. MCP server requires uv (install: curl -LsSf https://astral.sh/uv/install.sh | sh) — the ai-dev-kit repo is auto-cloned to ~/.databricks-ai-dev-kit during install. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor. Complements databricks-bundles, databricks-app-python, and langgraph-fundamentals skills.
 metadata:
   author: Alessandro Armillotta
-  version: 1.1.1
+  version: 1.2.0
   category: databricks
   tags: [databricks, mosaic-ai, langgraph, langchain, mlflow, unity-catalog, agents, asset-bundle, databricks-apps]
   dependencies:
@@ -59,7 +59,9 @@ metadata:
 
 ### Databricks Mosaic AI Agents
 
-Guide for building custom AI agents on Databricks using LangGraph or LangChain, and deploying them via **Model Serving** (production-grade REST endpoint) or **Databricks Apps** (rapid iteration with built-in UI).
+Guide for building custom AI agents on Databricks using LangGraph, LangChain, or OpenAI Agent SDK, and deploying them via **Model Serving** (production-grade REST endpoint) or **Databricks Apps** (rapid iteration with built-in UI).
+
+> **2026 highlights:** Supervisor Agent (formerly Multi-Agent Supervisor) is now GA in select US regions. OpenAI Agent SDK is now an officially supported framework for Databricks Apps. Databricks Apps supports direct deployment from Git repositories.
 
 > **Related skills to load alongside this one:**
 > - `databricks-bundles` (from databricks-solutions/ai-dev-kit) — for bundle structure and deployment commands
@@ -108,12 +110,12 @@ pip install databricks-langchain langgraph mlflow databricks-agents databricks-s
 
 ### Step 2: Choose the Agent Framework
 
-| Use LangGraph when | Use LangChain when |
-|--------------------|--------------------|
-| Multi-step reasoning with state | Simple ReAct agent loop |
-| Human-in-the-loop needed | Straightforward tool calling |
-| Complex conditional routing | Rapid prototyping |
-| Persistent memory across turns | Chain-based workflows |
+| Use LangGraph when | Use LangChain when | Use OpenAI Agent SDK when |
+|--------------------|--------------------|-----------------------------|
+| Multi-step reasoning with state | Simple ReAct agent loop | Native async + streaming needed |
+| Human-in-the-loop needed | Straightforward tool calling | OpenAI-compatible tool calling |
+| Complex conditional routing | Rapid prototyping | Databricks MCP server integration |
+| Persistent memory across turns | Chain-based workflows | Official Databricks app-templates pattern |
 
 ### Step 3: Build the Agent (Models from Code Pattern)
 
@@ -407,7 +409,8 @@ async def stream_handler(
     item_id = "langgraph_msg"
     full_text = ""
 
-    # astream_events v2 emits per-token chunks from the LLM
+    # astream_events version="v2": type-safe streaming (LangGraph >=1.0, opt-in, backwards compatible)
+    # Returns unified StreamPart with type/ns/data keys on every chunk
     async for event in agent_graph.astream_events({"messages": messages}, version="v2"):
         if event["event"] == "on_chat_model_stream":
             delta = event["data"]["chunk"].content
@@ -687,6 +690,19 @@ databricks bundle run my_agent_app -t dev
 # Promote to prod
 databricks bundle deploy -t prod
 databricks bundle run my_agent_app -t prod
+```
+
+**Option C — deploy directly from a Git repository (2026):**
+
+Databricks Apps now supports deploying directly from a linked Git repository — no manual file sync required. Configure in the `databricks.yml` or via the Databricks UI (Apps > Settings > Source > Git repository).
+
+```yaml
+resources:
+  apps:
+    my_agent_app:
+      name: "my-agent-app"
+      source_code_path: ./       # path within the cloned repo
+      # git repository is linked at the workspace level
 ```
 
 **Query the deployed app (OAuth only — PAT not supported):**
