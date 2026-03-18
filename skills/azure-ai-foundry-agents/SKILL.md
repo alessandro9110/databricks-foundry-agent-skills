@@ -2,10 +2,10 @@
 name: azure-ai-foundry-agents
 description: Guides creation and deployment of AI agents and multi-agent systems on Azure AI Foundry using Microsoft Agent Framework. Use when building agents with function calling, Databricks Genie, vector databases (Azure AI Search), or multi-agent orchestration. Triggers on phrases like "create agent on Azure", "deploy agent Foundry", "multi-agent Azure", "agent with tools Azure", "Databricks Genie agent", "vector search agent Foundry", "Azure AI agent", "Microsoft Agent Framework".
 license: MIT
-compatibility: Requires Azure subscription and azure-ai-projects Python SDK (>=2.0.0b4) or Microsoft.Agents.AI .NET package. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor.
+compatibility: Requires Azure subscription and azure-ai-projects Python SDK (>=2.0.0b4, v2 beta line) or Microsoft.Agents.AI .NET package. SDK v2 has breaking changes vs v1 — see SDK Migration Notes below. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor.
 metadata:
   author: Alessandro Armillotta
-  version: 1.0.0
+  version: 1.1.0
   category: azure-ai
   tags: [azure, ai-foundry, agents, multi-agent, databricks, vector-db, microsoft-agent-framework]
   dependencies:
@@ -285,3 +285,37 @@ Always synthesize results into a coherent final response.""",
 - Take time to correctly define tool schemas — precision here prevents errors downstream
 - For multi-agent systems, always define clear boundaries between agents in their instructions
 - Do not skip cleanup of agent versions after testing
+
+---
+
+## SDK Migration Notes (v2.0.0b4+)
+
+The `azure-ai-projects` SDK v2 (Python `2.0.0b4+`, .NET `2.0.0-beta.1+`) has breaking changes vs v1:
+
+| Area | Old (v1) | New (v2) |
+|------|----------|----------|
+| Authentication | `ad_token`, `ad_token_provider` params | Unified `credential` param (`DefaultAzureCredential`) |
+| Session management | `AgentThread` type | Removed — use `openai.responses` API directly |
+| Checkpoints | Previous format | Redesigned — migrate or regenerate existing artifacts |
+| Event property | `source_executor_id` | Renamed to `executor_id` in `WorkflowOutputEvent` |
+
+Install command (`pip install "azure-ai-projects>=2.0.0b4"`) already targets v2. If upgrading from v1, follow the [Microsoft upgrade guide](https://learn.microsoft.com/en-us/agent-framework/support/upgrade/python-2026-significant-changes).
+
+---
+
+## New Features (2026)
+
+### Managed Long-Term Memory
+The Foundry Agent Service now includes a fully managed memory store — no custom vector DB or retrieval pipeline required. Enable per agent:
+```python
+# Memory is configured via the agent definition — consult live docs via microsoft-learn MCP
+# Tool: mcp_microsoftdocs:microsoft_docs_fetch
+# Query: "azure ai foundry agent memory configuration"
+```
+Memory runs in 4 phases: Extract → Consolidate → Retrieve → Customize. Use `user_profile_details` to focus extraction on your domain.
+
+### Voice Live API (Public Preview)
+Build voice-first, multimodal, real-time agents via the Voice Live API integration with Foundry Agent Service. Consult live docs for the current SDK interface.
+
+### Durable Agent Orchestration
+New HITL (Human-in-the-Loop) pattern: pair Azure Durable Functions with Agent Framework and SignalR for agents that survive restarts and wait for human approval across sessions.
