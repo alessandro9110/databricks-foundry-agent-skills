@@ -1,13 +1,13 @@
 ---
 name: databricks-mosaic-ai-agents
-description: Guides building and deploying custom AI agents on Databricks using Mosaic AI Agent Framework with LangGraph, LangChain, or OpenAI Agent SDK. Use when creating agents with MLflow tracing, Unity Catalog functions as tools, Vector Search retrieval, or deploying agents via Model Serving (agents.deploy) or Databricks Apps. Triggers on phrases like "build agent Databricks", "LangGraph Mosaic AI", "LangChain Databricks agent", "OpenAI Agent SDK Databricks", "deploy agent MLflow", "UC function tool", "agent asset bundle", "Databricks agent job deployment", "Mosaic AI LangGraph", "Databricks Apps agent", "Supervisor Agent Databricks".
+description: Guides building and deploying custom AI agents on Databricks using Mosaic AI Agent Framework with LangGraph, LangChain, Deep Agents, or OpenAI Agent SDK. Use when creating agents with MLflow tracing, Unity Catalog functions as tools, Vector Search retrieval, or deploying agents via Model Serving (agents.deploy) or Databricks Apps. Triggers on phrases like "build agent Databricks", "LangGraph Mosaic AI", "LangChain Databricks agent", "Deep Agents Databricks", "multi-agent planning Databricks", "subagent delegation Databricks", "OpenAI Agent SDK Databricks", "deploy agent MLflow", "UC function tool", "agent asset bundle", "Databricks agent job deployment", "Mosaic AI LangGraph", "Databricks Apps agent", "Supervisor Agent Databricks", "human-in-the-loop Databricks".
 license: MIT
-compatibility: Requires Databricks workspace with Unity Catalog, MLflow 3.1.3+, databricks-langchain, langgraph or langchain, databricks-agents SDK. MCP server requires uv (install: curl -LsSf https://astral.sh/uv/install.sh | sh) — the ai-dev-kit repo is auto-cloned to ~/.databricks-ai-dev-kit during install. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor. Complements databricks-bundles, databricks-app-python, and langgraph-fundamentals skills.
+compatibility: Requires Databricks workspace with Unity Catalog, MLflow 3.1.3+, databricks-langchain, langgraph or langchain, databricks-agents SDK. For Deep Agents patterns: deepagents>=0.4.0. MCP server requires uv (install: curl -LsSf https://astral.sh/uv/install.sh | sh) — the ai-dev-kit repo is auto-cloned to ~/.databricks-ai-dev-kit during install. Works with Claude Code, Claude Desktop, VS Code with GitHub Copilot, and Cursor. Complements databricks-bundles, databricks-app-python, langgraph-fundamentals, and deep-agents-core skills.
 metadata:
   author: Alessandro Armillotta
-  version: 1.2.0
+  version: 1.3.0
   category: databricks
-  tags: [databricks, mosaic-ai, langgraph, langchain, mlflow, unity-catalog, agents, asset-bundle, databricks-apps]
+  tags: [databricks, mosaic-ai, langgraph, langchain, deep-agents, mlflow, unity-catalog, agents, asset-bundle, databricks-apps]
   dependencies:
     - name: databricks-bundles
       repo: databricks-solutions/ai-dev-kit
@@ -49,6 +49,22 @@ metadata:
       repo: databricks-solutions/ai-dev-kit
       raw_base: https://raw.githubusercontent.com/databricks-solutions/ai-dev-kit/main/databricks-skills/databricks-lakebase-provisioned
       files: [SKILL.md]
+    - name: deep-agents-core
+      repo: langchain-ai/langchain-skills
+      raw_base: https://raw.githubusercontent.com/langchain-ai/langchain-skills/main/config/skills/deep-agents-core
+      files: [SKILL.md]
+    - name: deep-agents-memory
+      repo: langchain-ai/langchain-skills
+      raw_base: https://raw.githubusercontent.com/langchain-ai/langchain-skills/main/config/skills/deep-agents-memory
+      files: [SKILL.md]
+    - name: deep-agents-orchestration
+      repo: langchain-ai/langchain-skills
+      raw_base: https://raw.githubusercontent.com/langchain-ai/langchain-skills/main/config/skills/deep-agents-orchestration
+      files: [SKILL.md]
+    - name: langgraph-human-in-the-loop
+      repo: langchain-ai/langchain-skills
+      raw_base: https://raw.githubusercontent.com/langchain-ai/langchain-skills/main/config/skills/langgraph-human-in-the-loop
+      files: [SKILL.md]
   mcp_servers:
     - name: databricks
       type: stdio
@@ -69,6 +85,9 @@ Guide for building custom AI agents on Databricks using LangGraph, LangChain, or
 > - `databricks-model-serving` (from databricks-solutions/ai-dev-kit) — for serving endpoint concepts
 > - `databricks-lakebase-provisioned` (from databricks-solutions/ai-dev-kit) — for persistent agent memory via managed PostgreSQL
 > - `databricks-app-python` (from databricks-solutions/ai-dev-kit) — for Databricks Apps patterns, OAuth, and FastAPI deployment
+> - `deep-agents-core` (from langchain-ai/langchain-skills) — for Deep Agents harness: planning, subagents, middleware
+> - `deep-agents-orchestration` (from langchain-ai/langchain-skills) — for SubAgentMiddleware, TodoList planning, and HITL orchestration
+> - `langgraph-human-in-the-loop` (from langchain-ai/langchain-skills) — for interrupt/resume patterns and approval workflows
 
 ### Prerequisites
 
@@ -110,12 +129,14 @@ pip install databricks-langchain langgraph mlflow databricks-agents databricks-s
 
 ### Step 2: Choose the Agent Framework
 
-| Use LangGraph when | Use LangChain when | Use OpenAI Agent SDK when |
-|--------------------|--------------------|-----------------------------|
-| Multi-step reasoning with state | Simple ReAct agent loop | Native async + streaming needed |
-| Human-in-the-loop needed | Straightforward tool calling | OpenAI-compatible tool calling |
-| Complex conditional routing | Rapid prototyping | Databricks MCP server integration |
-| Persistent memory across turns | Chain-based workflows | Official Databricks app-templates pattern |
+| Use LangGraph when | Use LangGraph + Deep Agents when | Use LangChain when | Use OpenAI Agent SDK when |
+|--------------------|----------------------------------|--------------------|---------------------------|
+| Custom graph with explicit nodes/edges | Multi-step tasks needing planning | Simple ReAct agent loop | Native async + streaming |
+| Fine-grained state control | Subagent delegation needed | Straightforward tool calling | OpenAI-compatible tool calling |
+| Complex conditional routing | HITL approval workflows | Rapid prototyping | Databricks MCP server integration |
+| Persistent memory across turns | Long-running tasks with file context | Chain-based workflows | Official Databricks app-templates |
+
+> **Deep Agents** è un harness su LangGraph (`create_deep_agent()`). Aggiunge automaticamente: `TodoListMiddleware` (planning), `SubAgentMiddleware` (delega), `HumanInTheLoopMiddleware` (approval), `MemoryMiddleware` (long-term memory). Nessuna logica da implementare — si configura, non si costruisce.
 
 ### Step 3: Build the Agent (Models from Code Pattern)
 
@@ -743,6 +764,224 @@ mlflow.artifacts.download_artifacts(
 3. **Map MLflow resources to `databricks.yml`** — see Resource Permission Mapping table above.
 
 4. **Test locally** with `uv run start-app`, then deploy.
+
+---
+
+## Advanced Pattern: Deep Agents on Databricks
+
+Use Deep Agents when l'agente deve pianificare task complessi, delegare lavoro a subagent specializzati, o gestire workflow con approvazione umana (HITL). È costruito su LangGraph — tutto ciò che funziona con LangGraph funziona con Deep Agents.
+
+### Install
+
+```bash
+pip install deepagents databricks-langchain mlflow databricks-agents
+```
+
+### Step 1: Create a Deep Agent with Databricks Model
+
+```python
+import mlflow
+from deepagents import create_deep_agent
+from databricks_langchain import ChatDatabricks
+from langchain_core.tools import tool
+
+mlflow.langchain.autolog()
+
+@tool
+def query_catalog(sql: str) -> str:
+    """Execute a SQL query against Unity Catalog tables.
+    Use for structured data retrieval, aggregations, and business metrics.
+
+    Args:
+        sql: Valid Spark SQL query against Unity Catalog tables
+    Returns:
+        Query results as formatted string
+    """
+    from databricks import sql as dbsql
+    from databricks.sdk import WorkspaceClient
+    ws = WorkspaceClient()
+    conn = dbsql.connect(
+        server_hostname=ws.config.host,
+        http_path="/sql/1.0/warehouses/<warehouse-id>",
+        credentials_provider=lambda: {"Authorization": f"Bearer {ws.config.token}"}
+    )
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    cols = [d[0] for d in cursor.description]
+    cursor.close(); conn.close()
+    return "\n".join([str(dict(zip(cols, r))) for r in rows])
+
+llm = ChatDatabricks(
+    endpoint="databricks-meta-llama-3-70b-instruct",
+    temperature=0.1,
+    max_tokens=4000
+)
+
+agent = create_deep_agent(
+    llm=llm,
+    tools=[query_catalog],
+    system_prompt="You are a Databricks data analyst. Use query_catalog for data questions. Plan complex tasks before executing.",
+)
+
+mlflow.models.set_model(agent)
+```
+
+> `create_deep_agent()` attiva automaticamente `TodoListMiddleware` (planning via `write_todos`) e il filesystem context. Il parametro `llm` accetta qualsiasi `BaseChatModel` LangChain, incluso `ChatDatabricks`.
+
+### Step 2: Add Specialized Subagents
+
+Usa `SubAgentMiddleware` per delegare lavoro a subagent specializzati. Il main agent invoca il tool `task(agent=..., instruction=...)`.
+
+```python
+from databricks_langchain import DatabricksVectorSearch
+from langchain.tools.retriever import create_retriever_tool
+
+# Tool per il subagent di ricerca documentale
+vs = DatabricksVectorSearch(index_name="catalog.schema.docs_index")
+retriever = vs.as_retriever(search_kwargs={"k": 5})
+search_tool = create_retriever_tool(
+    retriever,
+    "search_docs",
+    "Search internal documentation and knowledge base."
+)
+
+agent = create_deep_agent(
+    llm=llm,
+    tools=[query_catalog],
+    system_prompt="You are a data analyst. Delegate documentation searches to the 'researcher' subagent.",
+    subagents=[
+        {
+            "name": "researcher",
+            "description": "Search internal documentation and policies using vector search",
+            "system_prompt": "Search thoroughly. Return concise, cited summaries.",
+            "tools": [search_tool],
+        },
+        {
+            "name": "sql-specialist",
+            "description": "Write and optimize complex multi-table SQL queries on Unity Catalog",
+            "system_prompt": "Write efficient Spark SQL. Always explain joins and aggregations.",
+            "tools": [query_catalog],
+        }
+    ],
+)
+
+mlflow.models.set_model(agent)
+```
+
+### Step 3: Human-in-the-Loop (HITL) with Lakebase
+
+Per workflow che richiedono approvazione umana prima di operazioni sensibili (es. scrittura dati, deploy). Richiede un checkpointer — usa **Lakebase Provisioned** in produzione.
+
+```python
+from deepagents import create_deep_agent
+from databricks_langchain import ChatDatabricks
+from langchain_core.tools import tool
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.types import interrupt
+from databricks.sdk import WorkspaceClient
+import uuid
+
+@tool
+def write_to_catalog(sql: str) -> str:
+    """Execute a write operation (INSERT/UPDATE/DELETE) against Unity Catalog.
+    REQUIRES human approval before execution.
+
+    Args:
+        sql: Write SQL statement
+    Returns:
+        Execution result
+    """
+    # interrupt() sospende il graph e restituisce il payload all'utente
+    # Il graph riprende solo quando viene chiamato con Command(resume=...)
+    approval = interrupt({
+        "action": "write_to_catalog",
+        "sql": sql,
+        "message": f"Approve this write operation?\n\n```sql\n{sql}\n```"
+    })
+    if not approval.get("approved", False):
+        return "Operation cancelled by user."
+
+    # Esecuzione effettiva dopo approvazione
+    from databricks import sql as dbsql
+    ws = WorkspaceClient()
+    conn = dbsql.connect(
+        server_hostname=ws.config.host,
+        http_path="/sql/1.0/warehouses/<warehouse-id>",
+        credentials_provider=lambda: {"Authorization": f"Bearer {ws.config.token}"}
+    )
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    cursor.close(); conn.close()
+    return f"Write operation completed successfully."
+
+# Setup Lakebase checkpointer (required for interrupt/resume)
+w = WorkspaceClient()
+instance = w.database.get_database_instance(name="my-agent-memory")
+cred = w.database.generate_database_credential(
+    request_id=str(uuid.uuid4()),
+    instance_names=["my-agent-memory"]
+)
+conn_string = (
+    f"host={instance.read_write_dns} dbname=postgres "
+    f"user={w.current_user.me().user_name} "
+    f"password={cred.token} sslmode=require"
+)
+checkpointer = PostgresSaver.from_conn_string(conn_string)
+checkpointer.setup()
+
+llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
+
+agent = create_deep_agent(
+    llm=llm,
+    tools=[query_catalog, write_to_catalog],
+    system_prompt="You are a data engineer. Always ask for approval before write operations.",
+    checkpointer=checkpointer,   # abilita interrupt/resume
+)
+
+mlflow.models.set_model(agent)
+```
+
+**Gestione del ciclo interrupt/resume nel client:**
+```python
+from langgraph.types import Command
+
+thread_config = {"configurable": {"thread_id": "session-123"}}
+
+# Prima invocazione — l'agent potrebbe sospendersi su interrupt()
+result = agent.invoke({"messages": [{"role": "user", "content": "Update sales figures for Q1"}]}, thread_config)
+
+# Controlla se il graph è sospeso
+if hasattr(result, "__interrupt__"):
+    payload = result.__interrupt__[0].value
+    print(f"Approval needed: {payload['message']}")
+
+    # L'utente approva o rifiuta
+    user_decision = {"approved": True}  # o False
+
+    # Riprende dall'interrupt con la decisione
+    final_result = agent.invoke(Command(resume=user_decision), thread_config)
+    print(final_result["messages"][-1].content)
+```
+
+### Step 4: Deploy a Deep Agent (same paths as LangGraph)
+
+Deep Agents usa `mlflow.models.set_model(agent)` — il deploy segue esattamente gli stessi path di LangGraph:
+
+- **Model Serving** → `mlflow.langchain.log_model()` + `agents.deploy()` (vedi Deployment Path 1)
+- **Databricks Apps** → `@invoke()` / `@stream()` decorators (vedi Deployment Path 2)
+
+Aggiungi `deepagents` alle `pip_requirements` nel log_model:
+```python
+pip_requirements=[
+    "databricks-langchain",
+    "deepagents>=0.4.0",
+    "langgraph",
+    "mlflow",
+    "databricks-agents",
+]
+```
 
 ---
 
