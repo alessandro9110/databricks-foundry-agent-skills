@@ -233,6 +233,94 @@ bash install.sh --tools claude,cursor,copilot
 
 ---
 
+## Databricks MCP Authentication
+
+When you choose **Skills + MCP servers** during install, the installer prompts you to authenticate with your Databricks workspace. Two methods are available — credentials are **never** written into `.mcp.json` or any file tracked by git.
+
+### Method 1 — `~/.databrickscfg` via OAuth (recommended)
+
+Uses the Databricks CLI to authenticate via browser OAuth. Tokens are stored in `~/.databrickscfg` and refreshed automatically.
+
+**When the installer prompts you:**
+1. Enter your workspace URL (e.g. `https://adb-xxxx.azuredatabricks.net`)
+2. Enter a profile name (default: `DEFAULT`)
+3. The installer runs `databricks auth login` — your browser opens for OAuth approval
+4. Done — the MCP server reads credentials from `~/.databrickscfg` at runtime
+
+**Resulting `.mcp.json`:**
+```json
+{
+  "mcpServers": {
+    "databricks": {
+      "command": "/Users/you/.ai-dev-kit/.venv/bin/python",
+      "args": ["/Users/you/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"],
+      "env": { "DATABRICKS_CONFIG_PROFILE": "DEFAULT" }
+    }
+  }
+}
+```
+
+**Re-authenticate when token expires:**
+```bash
+databricks auth login --host https://<workspace>.azuredatabricks.net --profile DEFAULT
+```
+
+> Requires the Databricks CLI (`brew tap databricks/tap && brew install databricks`). If the CLI is not installed, the installer skips this option automatically.
+
+---
+
+### Method 2 — Environment variables
+
+Stores `DATABRICKS_HOST` and `DATABRICKS_TOKEN` as shell exports. Useful when the Databricks CLI is not available or in CI/CD environments.
+
+**When the installer prompts you:**
+1. Enter `DATABRICKS_HOST` (e.g. `https://adb-xxxx.azuredatabricks.net`)
+2. Enter `DATABRICKS_TOKEN` (a Personal Access Token from your Databricks workspace)
+3. The installer appends `export` statements to your shell profile (`~/.zprofile`, `~/.zshrc`, or `~/.bash_profile`)
+
+**What gets written to your shell profile:**
+```bash
+# Databricks credentials (added by agent-skills installer)
+export DATABRICKS_HOST="https://adb-xxxx.azuredatabricks.net"
+export DATABRICKS_TOKEN="dapixxxxxxxxxxxxxxxx"
+```
+
+**Resulting `.mcp.json`:**
+```json
+{
+  "mcpServers": {
+    "databricks": {
+      "command": "/Users/you/.ai-dev-kit/.venv/bin/python",
+      "args": ["/Users/you/.ai-dev-kit/repo/databricks-mcp-server/run_server.py"]
+    }
+  }
+}
+```
+
+No credentials in `.mcp.json` — the MCP server picks them up from the environment at runtime.
+
+**Apply immediately without restarting the terminal:**
+```bash
+source ~/.zprofile   # or ~/.zshrc / ~/.bash_profile depending on your shell
+```
+
+> Generate a Personal Access Token in your Databricks workspace: **Settings → Developer → Access Tokens → Generate new token**.
+
+---
+
+### Comparison
+
+| | Method 1 — `~/.databrickscfg` | Method 2 — Environment variables |
+|---|---|---|
+| **Auth flow** | Browser OAuth (no token to manage) | PAT — manually generated and rotated |
+| **Token refresh** | Automatic | Manual — update shell profile when token expires |
+| **Requires** | Databricks CLI installed | Nothing extra |
+| **Credentials location** | `~/.databrickscfg` | Shell profile (`~/.zprofile` etc.) |
+| **In `.mcp.json`** | Profile name only (no secret) | Nothing (env vars injected at runtime) |
+| **Best for** | Local development | CI/CD or environments without CLI |
+
+---
+
 ## Usage
 
 Once installed, skills activate automatically based on what you type. No slash commands or manual loading needed.
