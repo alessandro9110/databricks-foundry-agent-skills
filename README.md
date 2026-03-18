@@ -1,4 +1,4 @@
-# agent-skills
+# databricks-foundry-agent-skills
 
 A community repository of Agent Skills for Claude, GitHub Copilot, and Cursor — reusable AI workflows for Databricks, Azure AI Foundry, and more.
 
@@ -65,7 +65,7 @@ pip install "azure-ai-projects>=2.0.0b4" azure-identity
 ### Quick install
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/alessandro9110/agent-skills/main/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/alessandro9110/databricks-foundry-agent-skills/main/install.sh)
 ```
 
 The installer is fully interactive with arrow-key menus. No flags required.
@@ -154,7 +154,7 @@ Two options, both safe — credentials are never written into `.mcp.json`:
 ### Install for multiple AI tools
 
 ```bash
-git clone https://github.com/alessandro9110/agent-skills
+git clone https://github.com/alessandro9110/databricks-foundry-agent-skills
 cd agent-skills
 bash install.sh --tools claude,cursor,copilot
 ```
@@ -182,7 +182,8 @@ bash install.sh --tools claude,cursor,copilot
 
 | Skill | Source |
 |-------|--------|
-| `databricks-asset-bundles` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
+| `databricks-bundles` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
+| `databricks-app-python` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
 | `databricks-model-serving` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
 | `databricks-vector-search` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
 | `databricks-mlflow-evaluation` | [databricks-solutions/ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) |
@@ -213,7 +214,7 @@ bash install.sh --tools claude,cursor,copilot
 3. Run the installer from the integrated terminal:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/alessandro9110/agent-skills/main/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/alessandro9110/databricks-foundry-agent-skills/main/install.sh)
 ```
 
 ---
