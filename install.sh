@@ -516,7 +516,12 @@ install_mcps() {
 
     # ── stdio MCP with auto_clone: use ai-dev-kit standard setup ────────────
     if [[ "$mcp_type" == "stdio" ]] && [[ -n "$mcp_auto_clone" ]]; then
-      local ai_dir="$HOME/.ai-dev-kit"
+      local ai_dir
+      if $GLOBAL; then
+        ai_dir="$HOME/.ai-dev-kit"
+      else
+        ai_dir="$(pwd)/.databricks-mcp"
+      fi
       local repo_dir="$ai_dir/repo"
       local venv_dir="$ai_dir/.venv"
       local venv_python="$venv_dir/bin/python"
@@ -580,10 +585,12 @@ install_mcps() {
 
       else
         # ── Option B: shell environment variables ───────────────────────────
+        # ⚠️  Tokens and secrets are NEVER written to .mcp.json or any project file.
+        #     They are written only to your personal shell profile (outside the project).
         use_config_file=false
         printf "  DATABRICKS_HOST (e.g. https://adb-xxx.azuredatabricks.net): "
         IFS= read -r host_val </dev/tty
-        printf "  DATABRICKS_TOKEN: "
+        printf "  DATABRICKS_TOKEN (will be saved to your shell profile only, never in project files): "
         IFS= read -r token_val </dev/tty
 
         # Detect shell profile file
@@ -613,8 +620,9 @@ install_mcps() {
           fi
         fi
 
-        env_json="{}"   # no secrets in .mcp.json
+        env_json="{}"   # ⚠️ tokens and secrets never go into .mcp.json
         echo ""
+        warn "  ⚠️  Token saved to $shell_profile only — never committed to git."
         warn "  Restart your terminal and Claude Code for env vars to take effect."
         echo "  Or run: source $shell_profile"
       fi
@@ -623,7 +631,25 @@ install_mcps() {
       mcp_command="$venv_python"
       mcp_args="$repo_dir/databricks-mcp-server/run_server.py"
 
-      # 5. Write .mcp.json (project) or ~/.claude/settings.json (global)
+      # 5. Add .databricks-mcp/ and .mcp.json to .gitignore (project scope only)
+      if ! $GLOBAL; then
+        local gitignore_file="$(pwd)/.gitignore"
+        local needs_mcp_dir=true needs_mcp_json=true
+        if [[ -f "$gitignore_file" ]]; then
+          grep -q "^\.databricks-mcp/" "$gitignore_file" 2>/dev/null && needs_mcp_dir=false
+          grep -q "^\.mcp\.json"       "$gitignore_file" 2>/dev/null && needs_mcp_json=false
+        fi
+        if $needs_mcp_dir || $needs_mcp_json; then
+          { echo "";
+            echo "# Databricks MCP — local server install (machine-specific, never commit)";
+            $needs_mcp_dir  && echo ".databricks-mcp/";
+            $needs_mcp_json && echo ".mcp.json";
+          } >> "$gitignore_file"
+          success "  Added .databricks-mcp/ and .mcp.json to .gitignore"
+        fi
+      fi
+
+      # 7. Write .mcp.json (project) or ~/.claude/settings.json (global)
       for j in "${!SKILL_DIR_TOOLS[@]}"; do
         local tool="${SKILL_DIR_TOOLS[$j]}"
         local config_file config_key
