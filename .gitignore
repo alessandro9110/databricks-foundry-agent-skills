@@ -1,2 +1,6 @@
 .DS_Store
 **/.DS_Store
+
+# Databricks MCP — local server install (machine-specific, never commit)
+.databricks-mcp/
+.mcp.json
