@@ -516,12 +516,9 @@ install_mcps() {
 
     # ── stdio MCP with auto_clone: use ai-dev-kit standard setup ────────────
     if [[ "$mcp_type" == "stdio" ]] && [[ -n "$mcp_auto_clone" ]]; then
-      local ai_dir
-      if $GLOBAL; then
-        ai_dir="$HOME/.ai-dev-kit"
-      else
-        ai_dir="$(pwd)/.databricks-mcp"
-      fi
+      # venv and repo always go in ~/.ai-dev-kit (global, shared across projects)
+      # Never inside the project directory — project may have its own .venv
+      local ai_dir="$HOME/.ai-dev-kit"
       local repo_dir="$ai_dir/repo"
       local venv_dir="$ai_dir/.venv"
       local venv_python="$venv_dir/bin/python"
@@ -640,21 +637,20 @@ install_mcps() {
       mcp_command="$venv_python"
       mcp_args="$repo_dir/databricks-mcp-server/run_server.py"
 
-      # 5. Add .databricks-mcp/ and .mcp.json to .gitignore (project scope only)
+      # 5. Add .mcp.json to .gitignore (project scope only)
+      # Note: venv and repo are in ~/.ai-dev-kit/ (global), nothing to gitignore there
       if ! $GLOBAL; then
         local gitignore_file="$(pwd)/.gitignore"
-        local needs_mcp_dir=true needs_mcp_json=true
+        local needs_mcp_json=true
         if [[ -f "$gitignore_file" ]]; then
-          grep -q "^\.databricks-mcp/" "$gitignore_file" 2>/dev/null && needs_mcp_dir=false
-          grep -q "^\.mcp\.json"       "$gitignore_file" 2>/dev/null && needs_mcp_json=false
+          grep -q "^\.mcp\.json" "$gitignore_file" 2>/dev/null && needs_mcp_json=false
         fi
-        if $needs_mcp_dir || $needs_mcp_json; then
+        if $needs_mcp_json; then
           { echo "";
-            echo "# Databricks MCP — local server install (machine-specific, never commit)";
-            $needs_mcp_dir  && echo ".databricks-mcp/";
-            $needs_mcp_json && echo ".mcp.json";
+            echo "# Databricks MCP — machine-specific config, never commit";
+            echo ".mcp.json";
           } >> "$gitignore_file"
-          success "  Added .databricks-mcp/ and .mcp.json to .gitignore"
+          success "  Added .mcp.json to .gitignore"
         fi
       fi
 
