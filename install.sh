@@ -526,28 +526,37 @@ install_mcps() {
       local venv_dir="$ai_dir/.venv"
       local venv_python="$venv_dir/bin/python"
 
-      # 1. Clone or update repo
+      # 1. Sparse checkout — only databricks-tools-core/ and databricks-mcp-server/
       echo ""
       if [[ -d "$repo_dir/.git" ]]; then
         info "  Updating ai-dev-kit at $repo_dir ..."
         git -C "$repo_dir" pull -q || warn "  Update failed, continuing with existing version"
       else
-        info "  Cloning $mcp_auto_clone → $repo_dir ..."
-        git clone -q "$mcp_auto_clone" "$repo_dir" || { warn "  Clone failed — skipping $mcp_name"; continue; }
-        success "  Cloned to $repo_dir"
+        info "  Sparse-cloning $mcp_auto_clone (tools-core + mcp-server only) → $repo_dir ..."
+        git clone -q --filter=blob:none --no-checkout "$mcp_auto_clone" "$repo_dir" \
+          || { warn "  Clone failed — skipping $mcp_name"; continue; }
+        git -C "$repo_dir" sparse-checkout init --cone >/dev/null 2>&1
+        git -C "$repo_dir" sparse-checkout set databricks-tools-core databricks-mcp-server >/dev/null 2>&1
+        git -C "$repo_dir" checkout -q HEAD
+        success "  Sparse-cloned to $repo_dir (databricks-tools-core + databricks-mcp-server)"
       fi
 
-      # 2. Create venv (prefer uv, fallback to python3)
+      # 2. Create venv (prefer uv, fallback to python3 with visible progress)
       info "  Setting up Python environment at $venv_dir ..."
+      info "  (This may take 1-2 minutes on first install — please wait)"
       if $HAS_UV; then
         uv venv --python 3.11 --allow-existing "$venv_dir" >/dev/null 2>&1 || \
         uv venv --allow-existing "$venv_dir" >/dev/null 2>&1
-        uv pip install --python "$venv_python" -q \
+        info "  Installing packages with uv (fast)..."
+        uv pip install --python "$venv_python" \
           -e "$repo_dir/databricks-tools-core" \
           -e "$repo_dir/databricks-mcp-server" || warn "  Package install failed"
       else
+        warn "  uv not found — using pip (slower). Install uv for faster setup: curl -LsSf https://astral.sh/uv/install.sh | sh"
         python3 -m venv "$venv_dir"
-        "$venv_python" -m pip install -q \
+        info "  Installing packages with pip..."
+        "$venv_python" -m pip install --upgrade pip -q
+        "$venv_python" -m pip install \
           -e "$repo_dir/databricks-tools-core" \
           -e "$repo_dir/databricks-mcp-server" || warn "  Package install failed"
       fi
